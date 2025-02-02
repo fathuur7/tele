@@ -18,6 +18,7 @@
     "ollama": "^0.5.12",
     "ollama-node": "^0.1.28",
     "telegraf": "^4.16.3",
+    "yt-search": "^2.12.1",
     "ytsr": "^3.8.4"
   },
   "devDependencies": {

@@ -2,11 +2,14 @@ require('dotenv').config();
 const { Telegraf, Scenes, session } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
-const { cariLagu } = require('./pencarian_lagu');
+const { cariLagu, DEFAULT_SEARCH_CONFIG} = require('./pencarian_lagu');
 const { downloadLagu } = require('./download_lagu');
 // require('node-fetch');
 const { deepseekBot } = require('./botDeepseek');
 
+function escapeMarkdown(text) {
+    return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+}
 
 
 // Konfigurasi Bot
@@ -170,39 +173,31 @@ bot.command('lagu', async (ctx) => {
         const hasil = await cariLagu(judulLagu);
         
         if (hasil.totalResults === 0) {
-            return ctx.telegram.editMessageText(
+            await ctx.telegram.editMessageText(
                 ctx.chat.id,
                 searchMessage.message_id,
                 null,
                 '❌ Tidak ditemukan hasil yang cocok.'
             );
+            return;
         }
 
-        // Tambahkan header dan footer
-        const response = 
-            `🎵 *Hasil Pencarian*\n` +
-            `Untuk: "${escapeMarkdown(judulLagu)}"\n\n` +
-            `${hasil.formattedResults}\n\n` +
-            `📥 Untuk mengunduh, gunakan perintah /download [URL]`;
-
+        const formattedResults = `🎵 *Hasil Pencarian*\n\n${hasil.formattedResults}\n\n📥 Untuk mengunduh, gunakan perintah /download [URL]`;
+        
         await ctx.telegram.editMessageText(
             ctx.chat.id,
             searchMessage.message_id,
             null,
-            response,
-            { 
-                parse_mode: 'MarkdownV2',
-                disable_web_page_preview: true 
-            }
+            formattedResults,
+            { parse_mode: 'Markdown' }
         );
-
     } catch (error) {
         console.error('Search error:', error);
         await ctx.telegram.editMessageText(
             ctx.chat.id,
             searchMessage.message_id,
             null,
-            '❌ Terjadi kesalahan saat mencari lagu. Silakan coba lagi.'
+            '❌ Terjadi kesalahan saat mencari lagu.'
         );
     }
 });
@@ -221,16 +216,21 @@ bot.command('download', async (ctx) => {
     let filePath = null;
 
     try {
-        // Set timeout untuk download
-        const downloadPromise = downloadLagu(videoUrl, 'mp3');
         filePath = await Promise.race([
-            downloadPromise,
+            downloadLagu(videoUrl, 'mp3', async (progress) => {
+                await ctx.telegram.editMessageText(
+                    ctx.chat.id,
+                    statusMessage.message_id,
+                    null,
+                    `⏳ Mengunduh: ${progress}%`
+                ).catch(() => {});
+            }),
             new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Download timeout')), config.downloadTimeout)
+                setTimeout(() => reject(new Error('Download timeout - coba lagi nanti')), 
+                config.downloadTimeout)
             )
         ]);
 
-        // Update status
         await ctx.telegram.editMessageText(
             ctx.chat.id,
             statusMessage.message_id,
@@ -238,7 +238,6 @@ bot.command('download', async (ctx) => {
             '📤 Mengunggah file...'
         );
 
-        // Kirim file
         await ctx.replyWithDocument(
             { source: filePath },
             { caption: '✅ Unduhan selesai!' }
@@ -253,12 +252,13 @@ bot.command('download', async (ctx) => {
             `❌ Gagal mengunduh: ${error.message}`
         );
     } finally {
-        // Cleanup
         if (filePath && fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
         }
     }
 });
+
+
 
 // Error handler
 bot.catch((err, ctx) => {
