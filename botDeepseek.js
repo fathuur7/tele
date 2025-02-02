@@ -1,41 +1,120 @@
-// require('node-fetch');
+const { Ollama } = require('ollama');
 
-// async function deepseekBot(ctx, query) {
-//     try {
-//         // Show typing indicator while processing
-//         await ctx.sendChatAction('typing');
+// Menyimpan penggunaan user
+const userUsage = new Map();
+
+// Fungsi untuk mengecek dan memperbarui limit penggunaan
+function checkAndUpdateLimit(userId) {
+    const MAX_USAGE = 5;
+    const currentUsage = userUsage.get(userId) || 0;
+    
+    if (currentUsage >= MAX_USAGE) {
+        return false;
+    }
+    
+    userUsage.set(userId, currentUsage + 1);
+    return true;
+}
+
+// Fungsi untuk mendapatkan sisa penggunaan
+function getRemainingUsage(userId) {
+    const MAX_USAGE = 5;
+    const currentUsage = userUsage.get(userId) || 0;
+    return MAX_USAGE - currentUsage;
+}
+
+async function deepseekBot(ctx, query) {
+    try {
+        const userId = ctx.from.id;
         
-//         // Call Ollama API using fetch
-//         const response = await fetch('http://localhost:11434/api/chat', {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json',
-//             },
-//             body: JSON.stringify({
-//                 model: 'deepseek-coder:1.3b',
-//                 messages: [{
-//                     role: 'user',
-//                     content: query
-//                 }]
-//             })
-//         });
-
-//         if (!response.ok) {
-//             throw new Error(`HTTP error! status: ${response.status}`);
-//         }
-
-//         const data = await response.json();
+        // Cek limit penggunaan
+        if (!checkAndUpdateLimit(userId)) {
+            return '⚠️ Maaf, Anda telah mencapai batas maksimum penggunaan (5 kali).\nSilakan coba lagi besok!';
+        }
         
-//         if (!data.message || !data.message.content || data.message.content.trim() === '') {
-//             return '❌ Maaf, tidak ada jawaban yang ditemukan.';
-//         }
+        const remainingUsage = getRemainingUsage(userId);
+        
+        const ollama = new Ollama();
+        
+        // Tambahkan instruksi khusus ke query
+        const enhancedQuery = `Sebagai AI yang ramah dan membantu, tolong berikan jawaban yang ringkas, informatif, dan mudah dipahami untuk pertanyaan berikut: ${query}`;
+        
+        const response = await ollama.chat({
+            model: 'deepseek-r1:8b',
+            messages: [{ 
+                role: 'user', 
+                content: enhancedQuery 
+            }]
+        });
+        
+        // Proses dan format response
+        let formattedResponse = response.message.content;
 
-//         return data.message.content;
+        // menghapus thinking
+        formattedResponse = formattedResponse.replace(/<think>/gi, 'Thinking...');
+        formattedResponse = formattedResponse.replace(/<\/think>/gi, 'End of Thinking');
+        
+        // Filter kata-kata yang menunjukkan ketidakpastian
+        const uncertaintyWords = [
+            'mungkin', 'sepertinya', 'kemungkinan',
+            'bisa jadi', 'barangkali', 'kira-kira',
+            'seharusnya', 'sekiranya'
+        ];
+        
+        uncertaintyWords.forEach(word => {
+            formattedResponse = formattedResponse.replace(
+                new RegExp(word, 'gi'),
+                ''
+            );
+        });
+        
+        // Tambahkan emoji dan formatting yang relevan
+        formattedResponse = formattedResponse
+            .replace(/\b(penting|perhatian|catatan)\b/gi, '⚠️ $1')
+            .replace(/\b(sukses|berhasil)\b/gi, '✅ $1')
+            .replace(/\b(gagal|error)\b/gi, '❌ $1')
+            .replace(/\b(ide|pemikiran)\b/gi, '💡 $1')
+            .replace(/\b(waktu|jadwal)\b/gi, '⏰ $1')
+            .replace(/\b(informasi|info)\b/gi, 'ℹ️ $1');
+            
+        // Tambahkan footer yang menarik dengan info penggunaan tersisa
+        formattedResponse = `${formattedResponse.trim()}\n\n📊 Sisa penggunaan: ${remainingUsage} kali\n🤖 _Powered by DeepSeek AI_`;
+        
+        return formattedResponse;
 
-//     } catch (error) {
-//         console.error('DeepseekBot Error:', error);
-//         return '❌ Terjadi kesalahan saat memproses permintaan Anda. Silakan coba lagi nanti.';
-//     }
-// }
+    } catch (error) {
+        console.error('Deepseek error:', error);
+        return '❌ Maaf, terjadi kesalahan saat memproses pertanyaan Anda. Silakan coba lagi nanti.';
+    }
+}
 
-// module.exports = { deepseekBot };
+// Reset penggunaan setiap hari pada pukul 00:00
+function resetDailyUsage() {
+    userUsage.clear();
+    console.log('Usage limits reset for all users');
+}
+
+// Jalankan reset setiap hari pada pukul 00:00
+const scheduleDailyReset = () => {
+    const now = new Date();
+    const night = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1, // tomorrow
+        0, // 00 hours
+        0, // 00 minutes
+        0  // 00 seconds
+    );
+    const msToMidnight = night.getTime() - now.getTime();
+
+    setTimeout(() => {
+        resetDailyUsage();
+        // Setup next reset
+        setInterval(resetDailyUsage, 24 * 60 * 60 * 1000);
+    }, msToMidnight);
+};
+
+// Mulai penjadwalan reset
+scheduleDailyReset();
+
+module.exports = { deepseekBot };

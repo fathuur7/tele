@@ -5,7 +5,7 @@ const path = require('path');
 const { cariLagu } = require('./pencarian_lagu');
 const { downloadLagu } = require('./download_lagu');
 // require('node-fetch');
-// const { deepseekBot } = require('./botDeepseek');
+const { deepseekBot } = require('./botDeepseek');
 
 
 
@@ -61,7 +61,7 @@ Saya adalah bot pencari dan pengunduh musik. Berikut perintah yang tersedia:
 
 1. /lagu [Judul Lagu] - Mencari lagu {  dalam tahap pengembangan }}
 2. /download [URL YouTube] - Mengunduh lagu
-3. /help - Menampilkan bantuan
+3. /help - Menampilkan bantuan { dalam tahap pengembangan }
 4. /status - Cek status bot
 5 /deepseek - Mencari informasi lebih dalam mengenai lagu { dalam tahap pengembangan }
 
@@ -75,16 +75,16 @@ bot.help((ctx) => {
 🎵 *Panduan Penggunaan Bot* 🎵
 
 *Perintah Dasar:*
-• /lagu [Judul] - Mencari lagu
-• /download [URL] - Mengunduh lagu
-• /status - Cek status bot
+• \`/lagu [Judul]\` \\- Mencari lagu
+• \`/download [URL]\` \\- Mengunduh lagu
+• \`/status\` \\- Cek status bot
 
 *Format Pencarian yang Baik:*
-• /lagu Judul - Artis
-• /lagu Nama Album - Artis
+• \`/lagu Judul \\- Artis\`
+• \`/lagu Nama Album \\- Artis\`
 
-*bot Deepseek*
-* /deepseek [Pertayaan]
+*Bot Deepseek:*
+• \`/deepseek [Pertanyaan]\`
  
 *Catatan:*
 • Ukuran maksimal unduhan: 50MB
@@ -92,9 +92,11 @@ bot.help((ctx) => {
 • Waktu unduhan maksimal: 5 menit
 
 *Butuh bantuan?*
-Hubungi: @Yourboy8w
-    `;
-    return ctx.replyWithMarkdown(helpMessage);
+Hubungi: @Yourboy8w`;
+
+    return ctx.replyWithMarkdown(helpMessage, {
+        parse_mode: 'MarkdownV2'
+    });
 });
 
 bot.command('status', async (ctx) => {
@@ -119,20 +121,38 @@ bot.command('status', async (ctx) => {
     }
 });
 
-// // bot deepseek
-// bot.command('deepseek', async (ctx) => {
-//     const messageText = ctx.message.text;
-//     const match = messageText.match(/\/deepseek (.+)/);
-    
-//     if (!match) {
-//         return ctx.reply('❌ Format salah. Gunakan: /deepseek [Pertanyaan]');
-//     }
 
-//     const query = match[1];
-//     const response = await deepseekBot(ctx, query);
-//     return ctx.reply(response);
-// });
+// Bot command handler
+bot.command('deepseek', async (ctx) => {
+    try {
+        const messageText = ctx.message.text;
+        const match = messageText.match(/\/deepseek (.+)/);
+        
+        if (!match) {
+            return ctx.reply('❌ Format salah. Gunakan: /deepseek [Pertanyaan]');
+        }
 
+        const query = match[1];
+        
+        // Status message
+        const statusMsg = await ctx.reply('🤔 Sedang berpikir...');
+        
+        // Get response
+        const response = await deepseekBot(ctx, query);
+        
+        // Update message with response
+        await ctx.telegram.editMessageText(
+            ctx.chat.id,
+            statusMsg.message_id,
+            null,
+            response
+        );
+
+    } catch (error) {
+        console.error('Command error:', error);
+        return ctx.reply('❌ Terjadi kesalahan saat memproses perintah.');
+    }
+});
 
 // Command untuk mencari lagu
 bot.command('lagu', async (ctx) => {
@@ -150,31 +170,39 @@ bot.command('lagu', async (ctx) => {
         const hasil = await cariLagu(judulLagu);
         
         if (hasil.totalResults === 0) {
-            await ctx.telegram.editMessageText(
+            return ctx.telegram.editMessageText(
                 ctx.chat.id,
                 searchMessage.message_id,
                 null,
                 '❌ Tidak ditemukan hasil yang cocok.'
             );
-            return;
         }
 
-        const formattedResults = `🎵 *Hasil Pencarian*\n\n${hasil.formattedResults}\n\n📥 Untuk mengunduh, gunakan perintah /download [URL]`;
-        
+        // Tambahkan header dan footer
+        const response = 
+            `🎵 *Hasil Pencarian*\n` +
+            `Untuk: "${escapeMarkdown(judulLagu)}"\n\n` +
+            `${hasil.formattedResults}\n\n` +
+            `📥 Untuk mengunduh, gunakan perintah /download [URL]`;
+
         await ctx.telegram.editMessageText(
             ctx.chat.id,
             searchMessage.message_id,
             null,
-            formattedResults,
-            { parse_mode: 'Markdown' }
+            response,
+            { 
+                parse_mode: 'MarkdownV2',
+                disable_web_page_preview: true 
+            }
         );
+
     } catch (error) {
         console.error('Search error:', error);
         await ctx.telegram.editMessageText(
             ctx.chat.id,
             searchMessage.message_id,
             null,
-            '❌ Terjadi kesalahan saat mencari lagu. '
+            '❌ Terjadi kesalahan saat mencari lagu. Silakan coba lagi.'
         );
     }
 });
