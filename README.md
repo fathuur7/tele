@@ -21,8 +21,8 @@ A feature-rich Telegram bot for searching, downloading, and managing music playl
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/telegram-music-bot.git
-cd telegram-music-bot
+git clone [https://github.com/fathuur7/tele.git]
+cd tele
 ```
 
 2. Install dependencies:
