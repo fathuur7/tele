@@ -194,7 +194,7 @@ let nTransformWarning = false;
 const extractNTransform = body => {
   // Faster: extractNTransformFunc
   const nTransformFunc = getExtractFunctions([extractNTransformFunc, extractNTransformWithName], body, code =>
-    code.replace(/if\(typeof \S+==="undefined"\)return \S+;/, ""),
+    code.replace(/if\s*\(\s*typeof\s*[\w$]+\s*===?.*?\)\s*return\s+[\w$]+\s*;?/, ""),
   );
   if (!nTransformFunc && !nTransformWarning) {
     // This is optional, so we can continue if it's not found, but it will bottleneck the download.
@@ -209,7 +209,6 @@ const extractNTransform = body => {
   }
   return nTransformFunc;
 };
-
 /**
  * Extracts the actions that should be taken to decipher a signature
  * and transform the n parameter

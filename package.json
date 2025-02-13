@@ -1,19 +1,21 @@
 {
   "name": "telegram_bot",
   "version": "1.0.0",
-  "main": "telegram.js",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon telegram.js"
+    "start": "nodemon index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@distube/ytdl-core": "^4.16.0",
+    "@distube/ytdl-core": "^4.16.3",
     "axios": "^1.7.7",
     "dotenv": "^16.4.5",
+    "mongodb": "^6.13.0",
+    "mongoose": "^8.10.0",
     "node-fetch": "^3.3.2",
     "ollama": "^0.5.12",
     "ollama-node": "^0.1.28",
