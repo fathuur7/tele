@@ -1,1 +1,0 @@
-pencarian gambar bedasarkan user (query ,seberapabanyak foto yang mau di tunjukan).

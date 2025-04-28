@@ -74,3 +74,21 @@ class MusicBot {
 
 const bot = new MusicBot();
 bot.start();
+
+// / Endpoint webhook untuk Telegram
+const handler = async (req, res) => {
+    if (req.method === 'POST') {
+        await bot.handleUpdate(req.body);
+        res.status(200).send('OK');
+    } else {
+        res.status(405).send('Method Not Allowed');
+    }
+};
+
+// Membuat server HTTP yang akan dijalankan di Vercel
+const server = http.createServer(handler);
+
+// Menyediakan webhook Telegram
+server.listen(process.env.PORT || 3000, () => {
+    console.log('Server is running...');
+});
